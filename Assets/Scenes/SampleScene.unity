@@ -390,7 +390,7 @@ MonoBehaviour:
   coyoteTime: 0.1
   jumpBuffer: 0.12
   groundCheck: {fileID: 1195347509}
-  groundCheckSize: {x: 1, y: 0.12}
+  groundCheckSize: {x: 2.6, y: 0.12}
   groundLayers:
     serializedVersion: 2
     m_Bits: 64
