@@ -1,0 +1,120 @@
+# =============================================================
+#  vanishing-point / Unity 6 (2D URP)
+#
+#  줄바꿈 정규화 + 바이너리 지정 + Git LFS 추적 설정.
+#  이 파일 덕분에 "아무것도 안 바꿨는데 파일 전체가 수정됨"으로
+#  뜨는 현상이 방지됩니다.
+# =============================================================
+
+# 기본 규칙 --------------------------------------------------
+# 텍스트 파일은 저장소에 항상 LF로 저장하고, 체크아웃할 때
+# 각 OS에 맞는 줄바꿈으로 변환합니다. 윈도우에서 작업하고
+# 나중에 맥/리눅스에서 열어도 diff가 깨지지 않습니다.
+* text=auto
+
+# 코드 및 셰이더 ---------------------------------------------
+*.cs                  text diff=csharp
+*.shader              text
+*.shadergraph         text
+*.cginc               text
+*.hlsl                text
+*.glslinc             text
+*.compute             text
+*.raytrace            text
+*.asmdef              text
+*.asmref              text
+
+# UI Toolkit --------------------------------------------------
+*.uss                 text
+*.uxml                text
+
+# 설정 및 문서 ------------------------------------------------
+*.json                text
+*.txt                 text
+*.md                  text
+*.xml                 text
+*.yml                 text
+*.yaml                text
+
+# Unity YAML 에셋 (Force Text 직렬화) --------------------------
+# 프로젝트가 Force Text로 설정돼 있어서 전부 텍스트로 다룹니다.
+*.unity               text
+*.prefab              text
+*.asset               text
+*.meta                text
+*.mat                 text
+*.anim                text
+*.controller          text
+*.overrideController  text
+*.physicsMaterial2D   text
+*.physicMaterial      text
+*.inputactions        text
+*.scenetemplate       text
+*.playable            text
+*.mask                text
+*.signal              text
+*.guiskin             text
+*.fontsettings         text
+*.spriteatlas         text
+*.spriteatlasv2       text
+*.lighting            text
+*.terrainlayer        text
+*.mixer               text
+*.brush               text
+*.flare               text
+*.renderTexture       text
+*.cubemap             text
+
+# 이미지 -------------------------------------------------------
+# 회색 박스 단계에서는 용량이 작아서 LFS 없이 그냥 둡니다.
+# 나중에 스프라이트가 무거워지면 아래 LFS 블록으로 옮기세요.
+*.png                 binary
+*.jpg                 binary
+*.jpeg                binary
+*.gif                 binary
+*.bmp                 binary
+*.tga                 binary
+*.ico                 binary
+*.exr                 binary
+*.hdr                 binary
+*.cur                 binary
+
+# 폰트 ---------------------------------------------------------
+*.ttf                 binary
+*.otf                 binary
+
+# Git LFS 추적 -------------------------------------------------
+# 확실히 큰 것들만 넣었습니다. 깃허브 무료 계정은 LFS 용량이
+# 1GB라, 작은 파일까지 넣으면 금방 찹니다.
+
+# 아트 원본
+*.psd                 filter=lfs diff=lfs merge=lfs -text
+*.psb                 filter=lfs diff=lfs merge=lfs -text
+*.ase                 filter=lfs diff=lfs merge=lfs -text
+*.aseprite            filter=lfs diff=lfs merge=lfs -text
+*.tif                 filter=lfs diff=lfs merge=lfs -text
+*.tiff                filter=lfs diff=lfs merge=lfs -text
+
+# 오디오
+*.wav                 filter=lfs diff=lfs merge=lfs -text
+*.mp3                 filter=lfs diff=lfs merge=lfs -text
+*.ogg                 filter=lfs diff=lfs merge=lfs -text
+*.aif                 filter=lfs diff=lfs merge=lfs -text
+*.aiff                filter=lfs diff=lfs merge=lfs -text
+*.flac                filter=lfs diff=lfs merge=lfs -text
+
+# 영상
+*.mp4                 filter=lfs diff=lfs merge=lfs -text
+*.mov                 filter=lfs diff=lfs merge=lfs -text
+*.webm                filter=lfs diff=lfs merge=lfs -text
+
+# 3D 및 기타 대용량
+*.fbx                 filter=lfs diff=lfs merge=lfs -text
+*.blend               filter=lfs diff=lfs merge=lfs -text
+*.obj                 filter=lfs diff=lfs merge=lfs -text
+*.dll                 filter=lfs diff=lfs merge=lfs -text
+*.so                  filter=lfs diff=lfs merge=lfs -text
+*.dylib               filter=lfs diff=lfs merge=lfs -text
+*.unitypackage        filter=lfs diff=lfs merge=lfs -text
+*.zip                 filter=lfs diff=lfs merge=lfs -text
+*.7z                  filter=lfs diff=lfs merge=lfs -text
