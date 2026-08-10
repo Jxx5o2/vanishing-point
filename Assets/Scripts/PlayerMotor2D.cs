@@ -55,6 +55,12 @@ public class PlayerMotor2D : MonoBehaviour
     /// <summary>다른 스크립트에서 접지 상태를 읽을 때 쓴다.</summary>
     public bool IsGrounded => isGrounded;
 
+    /// <summary>
+    /// 깊이 평면이 바뀌면 밟을 수 있는 지형도 바뀐다.
+    /// DepthDirector 가 전환할 때마다 현재 평면의 레이어로 갈아 끼운다.
+    /// </summary>
+    public void SetGroundLayers(LayerMask layers) => groundLayers = layers;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -71,13 +77,9 @@ public class PlayerMotor2D : MonoBehaviour
         if (kb.aKey.isPressed || kb.leftArrowKey.isPressed)  inputX -= 1f;
         if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) inputX += 1f;
 
-        bool jumpDown = kb.spaceKey.wasPressedThisFrame
-                     || kb.wKey.wasPressedThisFrame
-                     || kb.upArrowKey.wasPressedThisFrame;
-
-        bool jumpUp = kb.spaceKey.wasReleasedThisFrame
-                   || kb.wKey.wasReleasedThisFrame
-                   || kb.upArrowKey.wasReleasedThisFrame;
+        // 점프는 Space 전용. ↑ / W 는 게이트 진입에 쓰므로 여기서 빼둔다.
+        bool jumpDown = kb.spaceKey.wasPressedThisFrame;
+        bool jumpUp   = kb.spaceKey.wasReleasedThisFrame;
 
         // 점프 버퍼 — 누른 걸 잠깐 기억해 둔다
         if (jumpDown) bufferCounter = jumpBuffer;
