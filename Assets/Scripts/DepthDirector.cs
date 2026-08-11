@@ -28,6 +28,14 @@ public class DepthDirector : MonoBehaviour
     [Tooltip("전환 가감속")]
     [SerializeField] AnimationCurve ease = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
+    [Tooltip("카메라가 플레이어보다 늦게 따라가는 정도. 0이면 같이 움직여서 " +
+             "플레이어 크기가 전혀 안 변한다. 값을 올리면 플레이어가 잠깐 " +
+             "멀어졌다가 카메라가 따라잡는다 — 빨려 들어가는 느낌이 강해진다")]
+    [SerializeField, Range(0f, 3f)] float cameraLag = 1f;
+
+    [Tooltip("앞뒤 평면이 서로 넘어가는 데 걸리는 비율. 1이면 전환 내내 서서히 바뀐다")]
+    [SerializeField, Range(0.3f, 1f)] float crossfade = 1f;
+
     int currentDepth;
     bool transitioning;
 
@@ -56,7 +64,7 @@ public class DepthDirector : MonoBehaviour
             return;
         }
         ApplyDepth(currentDepth);
-        ApplyVisibility(currentDepth, currentDepth);
+        SettleVisibility(currentDepth);
         cam.transform.position = start.CameraPosition;   // 첫 프레임부터 제자리에
     }
 
@@ -92,39 +100,46 @@ public class DepthDirector : MonoBehaviour
         playerMotor.enabled = false;
         playerBody.simulated = false;
 
-        // 전환 내내 출발 평면과 도착 평면을 둘 다 보여준다.
-        // 중간에 갑자기 나타나거나 사라지면 "이동했다"가 아니라 "장면이 바뀌었다"로 읽힌다.
-        ApplyVisibility(currentDepth, targetDepth);
+        int fromDepth = currentDepth;
 
         Vector3 fromPos = player.position;
         Vector3 toPos   = exitPoint.position;
         Vector3 fromCam = cam.transform.position;
         Vector3 toCam   = PlaneOf(targetDepth).CameraPosition;
 
-        bool layerSwapped = false;
+        bool swapped = false;
         float t = 0f;
 
         while (t < 1f)
         {
-            t += Time.deltaTime / duration;
-            float e = ease.Evaluate(Mathf.Clamp01(t));
+            t = Mathf.Min(1f, t + Time.deltaTime / duration);
 
-            player.position         = Vector3.Lerp(fromPos, toPos, e);
-            cam.transform.position  = Vector3.Lerp(fromCam, toCam, e);
+            float e = ease.Evaluate(t);
 
-            // 절반쯤 왔을 때 소속 평면을 바꾼다. 넘어가는 그 순간이다.
-            if (!layerSwapped && e >= 0.5f)
+            // 카메라는 일부러 늦게 출발했다가 따라잡는다.
+            // 그 사이 카메라와 플레이어의 거리가 벌어져서 플레이어가 작아진다.
+            float camT = ease.Evaluate(Mathf.Pow(t, 1f + cameraLag));
+
+            player.position        = Vector3.Lerp(fromPos, toPos, e);
+            cam.transform.position = Vector3.Lerp(fromCam, toCam, camT);
+
+            // 앞 평면은 서서히 사라지고 뒤 평면은 서서히 나타난다.
+            BlendVisibility(fromDepth, targetDepth, Mathf.Clamp01(t / crossfade));
+
+            // 소속 평면(충돌)은 절반쯤 왔을 때 바꾼다. 넘어가는 그 순간이다.
+            if (!swapped && t >= 0.5f)
             {
                 ApplyDepth(targetDepth);
-                layerSwapped = true;
+                ApplySharpness(targetDepth);
+                swapped = true;
             }
             yield return null;
         }
 
         player.position        = toPos;
         cam.transform.position = toCam;
-        if (!layerSwapped) ApplyDepth(targetDepth);
-        ApplyVisibility(targetDepth, targetDepth);
+        if (!swapped) { ApplyDepth(targetDepth); ApplySharpness(targetDepth); }
+        SettleVisibility(targetDepth);
 
         playerBody.simulated = true;
         playerBody.linearVelocity = Vector2.zero;   // 도착 직후 관성으로 튀지 않게
@@ -159,30 +174,50 @@ public class DepthDirector : MonoBehaviour
         playerMotor.SetGroundLayers(selfLayer);
     }
 
-    /// <summary>
-    /// 무엇을 보여줄지 정한다.
-    ///
-    ///   플랫폼 — 서 있는 평면만. 다음 평면의 지형이 보이면 레벨 구조가
-    ///            노출돼서, 게이트 앞에서 답을 미리 읽게 된다.
-    ///   배경   — 현재 평면과 그 한 겹 안쪽까지. 안쪽 배경이 앞 평면 배경의
-    ///            뚫린 부분 너머로 보이면서 "저 안에 뭔가 있다"가 전달된다.
-    ///
-    /// a 와 b 는 전환 중일 때 출발/도착 깊이다. 전환 중이 아니면 둘이 같다.
-    /// </summary>
-    void ApplyVisibility(int a, int b)
+    // --- 무엇을 얼마나 보여줄 것인가 -------------------------------------
+    //
+    //   지형 — 서 있는 평면만. 다음 평면의 지형이 보이면 레벨 구조가
+    //          노출돼서, 게이트 앞에서 답을 미리 읽게 된다.
+    //   배경 — 현재 평면과 그 한 겹 안쪽까지. 안쪽 배경이 앞 평면 배경의
+    //          뚫린 부분 너머로 보이면서 "저 안에 뭔가 있다"가 전달된다.
+
+    static float PlatformAlphaAt(DepthPlane p, int depth)
+        => p.DepthIndex == depth ? 1f : 0f;
+
+    static float BackgroundAlphaAt(DepthPlane p, int depth)
+        => (p.DepthIndex == depth || p.DepthIndex == depth + 1) ? 1f : 0f;
+
+    /// <summary>전환이 끝났거나 시작 전. 목표 상태로 확정한다.</summary>
+    void SettleVisibility(int depth)
     {
         if (planes == null) return;
         foreach (var p in planes)
         {
             if (p == null) continue;
-            int d = p.DepthIndex;
-
-            bool platforms  = d == a || d == b;
-            bool background = d == a || d == a + 1 || d == b || d == b + 1;
-
-            p.SetPlatformsVisible(platforms);
-            p.SetBackgroundVisible(background);
+            p.SetPlatformsAlpha(PlatformAlphaAt(p, depth));
+            p.SetBackgroundAlpha(BackgroundAlphaAt(p, depth));
         }
+        ApplySharpness(depth);
+    }
+
+    /// <summary>전환 중. 두 상태 사이를 섞는다.</summary>
+    void BlendVisibility(int from, int to, float e)
+    {
+        if (planes == null) return;
+        foreach (var p in planes)
+        {
+            if (p == null) continue;
+            p.SetPlatformsAlpha (Mathf.Lerp(PlatformAlphaAt (p, from), PlatformAlphaAt (p, to), e));
+            p.SetBackgroundAlpha(Mathf.Lerp(BackgroundAlphaAt(p, from), BackgroundAlphaAt(p, to), e));
+        }
+    }
+
+    /// <summary>서 있는 평면의 배경만 선명하게, 나머지는 흐린 그림으로.</summary>
+    void ApplySharpness(int depth)
+    {
+        if (planes == null) return;
+        foreach (var p in planes)
+            if (p != null) p.SetBackgroundSharp(p.DepthIndex == depth);
     }
 
     DepthPlane PlaneOf(int depth)

@@ -1,15 +1,17 @@
 using UnityEngine;
 
 /// <summary>
-/// 배경 스프라이트를 자기 깊이에서의 화면 크기에 맞춰 자동으로 늘린다.
+/// 배경 스프라이트를 화면 크기에 맞춰 자동으로 늘린다.
 ///
-/// 배경은 평면보다 뒤에 있어서 화면을 채우려면 평면보다 커야 하는데,
-/// 그 크기가 Camera Distance 를 만질 때마다 바뀐다. 매번 손으로 계산하는
-/// 대신 이 컴포넌트가 맞춰 준다.
+/// 중요한 점 하나 — 이 배경은 <b>두 위치에서 보인다.</b>
+///   ① 자기 평면에 서 있을 때 (가까움)
+///   ② 한 겹 앞 평면에서 구멍 너머로 볼 때 (멂)
+/// 원근 때문에 ②가 더 넓은 범위를 요구하므로, <b>먼 쪽 기준으로</b> 크기를
+/// 잡아야 가장자리에 빈 공간이 생기지 않는다.
 ///
-/// 배경 스프라이트 오브젝트에 붙인다. 붙이는 순간부터 Scale 과 X/Y 위치는
-/// 이 컴포넌트가 관리하므로, 조정은 아래 항목들로만 하면 된다.
-/// 스프라이트가 1×1 유닛인 것을 전제로 한다 (sq_Box 는 그렇게 되어 있다).
+/// 벽의 구멍은 이 컴포넌트가 아니라 <b>그림의 투명 영역</b>으로 만든다.
+/// 판을 작게 줄여서 뚫으면, 그 구멍 뒤에 있어야 할 안쪽 배경까지 같이
+/// 줄어들어서 정작 구멍으로는 아무것도 안 보인다.
 /// </summary>
 [ExecuteAlways]
 [DisallowMultipleComponent]
@@ -18,36 +20,47 @@ public class BackgroundFitter : MonoBehaviour
     [Tooltip("어느 평면의 배경인지. 비워두면 부모에서 자동으로 찾는다")]
     [SerializeField] DepthPlane plane;
 
-    [Tooltip("화면 세로의 몇 %를 덮을지. 1이면 꽉 채우고, 0.7이면 위쪽 30%가 뚫린다")]
-    [SerializeField, Range(0.1f, 1f)] float heightFill = 0.7f;
+    [Tooltip("화면 세로의 몇 %를 덮을지. 구멍은 그림의 투명 영역으로 내므로 보통 1")]
+    [SerializeField, Range(0.1f, 1f)] float heightFill = 1f;
 
-    [Tooltip("가로 여유. 1.05면 화면보다 5% 넓게 잡아 가장자리 틈을 막는다")]
-    [SerializeField, Range(1f, 1.5f)] float widthOverfill = 1.05f;
+    [Tooltip("여유 배율. 1.03이면 화면보다 3% 크게 잡아 가장자리 틈을 막는다")]
+    [SerializeField, Range(1f, 1.5f)] float overfill = 1.03f;
 
-    [Tooltip("바닥 기준에서 위아래로 밀 값. 뚫린 높이를 미세 조정할 때 쓴다")]
+    [Tooltip("위아래 미세 조정")]
     [SerializeField] float verticalNudge = 0f;
 
-    void OnEnable()  { if (GuardWrongTarget()) return; Fit(); }
-    void OnValidate(){ if (GuardWrongTarget()) return; Fit(); }
-    void LateUpdate(){ if (!enabled) return; Fit(); }
+    DepthPlane frontPlane;      // 이 배경을 멀리서 보게 될 한 겹 앞 평면
+
+    void OnEnable()   { if (Guard()) return; CacheFrontPlane(); Fit(); }
+    void OnValidate() { if (Guard()) return; CacheFrontPlane(); Fit(); }
+    void LateUpdate() { if (!enabled) return; Fit(); }
 
     /// <summary>
     /// 지형이나 콜라이더가 있는 오브젝트에 잘못 붙이면 그것까지 늘려버린다.
     /// 컴포넌트를 떼도 바뀐 Scale 은 남기 때문에 원인을 찾기가 아주 어렵다.
-    /// 그래서 아예 붙지 못하게 막는다.
     /// </summary>
-    bool GuardWrongTarget()
+    bool Guard()
     {
         if (GetComponent<UnityEngine.Tilemaps.Tilemap>() != null || GetComponent<Collider2D>() != null)
         {
             Debug.LogError(
                 $"[BackgroundFitter] '{name}' 은 지형/콜라이더 오브젝트입니다. " +
-                "배경 스프라이트에만 붙이세요. 이 컴포넌트를 제거하고, " +
+                "배경 스프라이트에만 붙이세요. 이 컴포넌트를 제거하고 " +
                 "Transform 의 Scale 을 1,1,1 로 되돌려 주세요.", this);
             enabled = false;
             return true;
         }
         return false;
+    }
+
+    void CacheFrontPlane()
+    {
+        frontPlane = null;
+        if (plane == null) plane = GetComponentInParent<DepthPlane>();
+        if (plane == null) return;
+
+        foreach (var p in FindObjectsByType<DepthPlane>(FindObjectsSortMode.None))
+            if (p.DepthIndex == plane.DepthIndex - 1) { frontPlane = p; break; }
     }
 
     void Fit()
@@ -58,25 +71,40 @@ public class BackgroundFitter : MonoBehaviour
         var cam = Camera.main;
         if (cam == null) return;
 
-        // 이 오브젝트가 놓인 Z에서 카메라까지의 실제 거리
         Vector3 camPos = plane.CameraPosition;
-        float distance = transform.position.z - camPos.z;
-        if (distance <= 0.01f) return;   // 카메라 뒤에 있으면 계산 의미 없음
+
+        // 이 배경을 보게 될 카메라 중 가장 먼 것을 기준으로 크기를 잡는다.
+        // 앞 평면에서 볼 때가 더 멀고, 더 넓은 범위를 요구한다.
+        float viewerZ = camPos.z;
+        if (frontPlane != null) viewerZ = Mathf.Min(viewerZ, frontPlane.CameraPosition.z);
+
+        float distance = transform.position.z - viewerZ;
+        if (distance <= 0.01f) return;
 
         float screenH = cam.orthographic
             ? cam.orthographicSize * 2f
             : 2f * distance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
         float screenW = screenH * (cam.aspect > 0f ? cam.aspect : 16f / 9f);
 
-        float wallH = screenH * heightFill;
-        float wallW = screenW * widthOverfill;
+        float wallH = screenH * heightFill * overfill;
+        float wallW = screenW * overfill;
 
-        // 화면 아래쪽에 붙인다. 그래서 남는 공간은 항상 위쪽이 되고,
-        // 그 뚫린 위쪽으로 다음 평면의 배경이 보인다.
+        // 화면 아래쪽에 붙인다. heightFill 이 1이면 결과적으로 화면 중앙에 온다.
         float screenBottom = camPos.y - screenH * 0.5f;
         float centerY = screenBottom + wallH * 0.5f + verticalNudge;
 
-        transform.localScale = new Vector3(wallW, wallH, 1f);
+        // 스프라이트가 몇 유닛짜리인지 실제로 물어본다.
+        // 1x1 이라고 가정하면 PPU 나 비율이 다른 그림에서 어긋난다.
+        Vector2 unit = Vector2.one;
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null && sr.sprite != null)
+        {
+            Vector3 b = sr.sprite.bounds.size;
+            if (b.x > 0.0001f) unit.x = b.x;
+            if (b.y > 0.0001f) unit.y = b.y;
+        }
+
+        transform.localScale = new Vector3(wallW / unit.x, wallH / unit.y, 1f);
         transform.position   = new Vector3(camPos.x, centerY, transform.position.z);
     }
 }

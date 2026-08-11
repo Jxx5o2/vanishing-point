@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 /// <summary>
 /// 깊이 평면 하나. 이 오브젝트의 자식으로 그 평면의 지형과 배경을 둔다.
@@ -28,6 +30,13 @@ public class DepthPlane : MonoBehaviour
     [Tooltip("배경 이미지. 한 겹 앞 평면에서도 보인다 (흐릿하게)")]
     [SerializeField] GameObject backgroundRoot;
 
+    [Header("배경 초점")]
+    [Tooltip("이 평면에 서 있을 때 쓸 선명한 배경")]
+    [SerializeField] Sprite backgroundSharp;
+
+    [Tooltip("한 겹 앞에서 볼 때 쓸 흐린 배경. 비워두면 교체하지 않는다")]
+    [SerializeField] Sprite backgroundBlurred;
+
     [Header("카메라 구도")]
     [Tooltip("이 방을 비출 때 화면 중심이 될 지점 (월드 좌표 X, Y)")]
     [SerializeField] Vector2 roomCenter = Vector2.zero;
@@ -35,8 +44,31 @@ public class DepthPlane : MonoBehaviour
     [Tooltip("카메라가 이 평면에서 뒤로 떨어질 거리. 클수록 넓게 보인다")]
     [SerializeField] float cameraDistance = 20f;
 
-    Renderer[] platformRenderers;
-    Renderer[] backgroundRenderers;
+    /// <summary>
+    /// 알파를 조절할 수 있는 대상 하나. 스프라이트는 SpriteRenderer 의 색으로,
+    /// 타일맵은 Tilemap 컴포넌트의 색으로 알파가 조절된다 (렌더러가 아니다).
+    /// 원래 색을 기억해 두고 알파만 곱하므로, 깊이별로 넣어둔 색조가 유지된다.
+    /// </summary>
+    class Fadeable
+    {
+        public Renderer renderer;
+        public SpriteRenderer sprite;
+        public Tilemap tilemap;
+        public Color baseColor;
+
+        public void SetAlpha(float a)
+        {
+            var c = baseColor;
+            c.a = baseColor.a * a;
+            if (sprite  != null) sprite.color  = c;
+            if (tilemap != null) tilemap.color = c;
+            if (renderer != null) renderer.enabled = a > 0.002f;   // 완전 투명이면 그리지 않는다
+        }
+    }
+
+    List<Fadeable> platformFades = new List<Fadeable>();
+    List<Fadeable> backgroundFades = new List<Fadeable>();
+    SpriteRenderer backgroundSprite;
 
     public int DepthIndex => depthIndex;
 
@@ -59,24 +91,60 @@ public class DepthPlane : MonoBehaviour
     void Awake()
     {
         // 비활성 상태인 것도 포함해서 캐싱해 둔다.
-        platformRenderers  = platformsRoot  != null ? platformsRoot.GetComponentsInChildren<Renderer>(true)  : new Renderer[0];
-        backgroundRenderers = backgroundRoot != null ? backgroundRoot.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
+        Collect(platformsRoot,  platformFades);
+        Collect(backgroundRoot, backgroundFades);
+        if (backgroundRoot != null) backgroundSprite = backgroundRoot.GetComponentInChildren<SpriteRenderer>(true);
+    }
+
+    static void Collect(GameObject root, List<Fadeable> into)
+    {
+        into.Clear();
+        if (root == null) return;
+
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            var f = new Fadeable { renderer = r };
+            f.sprite  = r as SpriteRenderer;
+            f.tilemap = r.GetComponent<Tilemap>();
+
+            if (f.sprite  != null) f.baseColor = f.sprite.color;
+            else if (f.tilemap != null) f.baseColor = f.tilemap.color;
+            else continue;   // 색을 못 만지는 렌더러는 건너뛴다
+
+            into.Add(f);
+        }
     }
 
     /// <summary>
-    /// 지형을 보이거나 감춘다. 콜라이더는 건드리지 않는다 —
-    /// 충돌 분리는 레이어가 이미 하고 있으므로 렌더러만 끄면 된다.
+    /// 배경을 선명한 것과 흐린 것 중 하나로 바꾼다.
+    ///
+    /// URP 2D Renderer 는 카메라 피사계 심도를 지원하지 않아서, 흐림은
+    /// 미리 흐리게 만들어 둔 그림을 갈아 끼우는 방식으로 낸다. 흐린 정도를
+    /// 그림에서 직접 정할 수 있다는 게 오히려 장점이다.
     /// </summary>
-    public void SetPlatformsVisible(bool visible)
+    public void SetBackgroundSharp(bool sharp)
     {
-        if (platformRenderers == null) return;
-        foreach (var r in platformRenderers) if (r != null) r.enabled = visible;
+        if (backgroundSprite == null) return;
+        var target = sharp ? backgroundSharp : backgroundBlurred;
+        if (target != null && backgroundSprite.sprite != target)
+            backgroundSprite.sprite = target;
     }
 
-    public void SetBackgroundVisible(bool visible)
+    /// <summary>
+    /// 지형의 불투명도. 콜라이더는 건드리지 않는다 —
+    /// 충돌 분리는 레이어가 이미 하고 있으므로 그림만 조절하면 된다.
+    ///
+    /// 켜고 끄는 대신 알파를 쓰는 이유: 한 프레임에 사라지면 그건 컷이고,
+    /// 뇌가 "이동했다"가 아니라 "장면이 바뀌었다"로 읽는다.
+    /// </summary>
+    public void SetPlatformsAlpha(float a)
     {
-        if (backgroundRenderers == null) return;
-        foreach (var r in backgroundRenderers) if (r != null) r.enabled = visible;
+        foreach (var f in platformFades) f.SetAlpha(a);
+    }
+
+    public void SetBackgroundAlpha(float a)
+    {
+        foreach (var f in backgroundFades) f.SetAlpha(a);
     }
 
     void OnValidate()

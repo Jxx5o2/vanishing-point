@@ -1853,8 +1853,8 @@ Transform:
   m_GameObject: {fileID: 629982734}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.5, y: -1.3761601, z: 0}
-  m_LocalScale: {x: 42.03519, y: 15.755412, z: 1}
+  m_LocalPosition: {x: 3.5, y: -1.1398287, z: 0}
+  m_LocalScale: {x: 4.0268087, y: 4.2260613, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1951408533}
@@ -1873,7 +1873,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BackgroundFitter
   plane: {fileID: 670549330}
   heightFill: 0.7
-  widthOverfill: 1.05
+  overfill: 1.03
   verticalNudge: 0
 --- !u!212 &629982737
 SpriteRenderer:
@@ -1924,8 +1924,8 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: -10
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 4d5314a7ab6e7864291f4203af609370, type: 3}
-  m_Color: {r: 0.735849, g: 0.735849, b: 0.735849, a: 1}
+  m_Sprite: {fileID: 5361134187806198186, guid: 9a65b82c1850bda4b9ce05946b35808e, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -1967,7 +1967,9 @@ MonoBehaviour:
   depthIndex: 0
   layerName: Depth0
   platformsRoot: {fileID: 1588250053}
-  backgroundRoot: {fileID: 514004570}
+  backgroundRoot: {fileID: 1951408532}
+  backgroundSharp: {fileID: 5361134187806198186, guid: 9a65b82c1850bda4b9ce05946b35808e, type: 3}
+  backgroundBlurred: {fileID: 1060869499198027966, guid: 543f5229b036b0741acf8df8268dabc3, type: 3}
   roomCenter: {x: 3.5, y: 2}
   cameraDistance: 39
 --- !u!4 &670549331
@@ -3477,6 +3479,8 @@ MonoBehaviour:
   layerName: Depth1
   platformsRoot: {fileID: 1168722483}
   backgroundRoot: {fileID: 1967594076}
+  backgroundSharp: {fileID: 7695353669316094293, guid: 1f99f1e5e2459a6489ba80aed1616a89, type: 3}
+  backgroundBlurred: {fileID: 2450399948692006026, guid: f243beb39bb53804e9ed21ad79012b1a, type: 3}
   roomCenter: {x: 3.5, y: 2}
   cameraDistance: 39
 --- !u!4 &1483164542
@@ -3569,8 +3573,8 @@ Transform:
   m_GameObject: {fileID: 1665143900}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.5, y: -1.3761601, z: 0}
-  m_LocalScale: {x: 42.03519, y: 15.755412, z: 1}
+  m_LocalPosition: {x: 3.5, y: 2.4340773, z: 0}
+  m_LocalScale: {x: 5.1773257, y: 7.762153, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1967594077}
@@ -3624,8 +3628,8 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: -10
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 4d5314a7ab6e7864291f4203af609370, type: 3}
-  m_Color: {r: 0.9893304, g: 1, b: 0.6367924, a: 1}
+  m_Sprite: {fileID: 7695353669316094293, guid: 1f99f1e5e2459a6489ba80aed1616a89, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -3648,8 +3652,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BackgroundFitter
   plane: {fileID: 1483164541}
-  heightFill: 0.7
-  widthOverfill: 1.05
+  heightFill: 1
+  overfill: 1.03
   verticalNudge: 0
 --- !u!1 &1951408532
 GameObject:
