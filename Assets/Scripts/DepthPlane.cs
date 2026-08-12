@@ -17,8 +17,13 @@ using UnityEngine.Tilemaps;
 public class DepthPlane : MonoBehaviour
 {
     [Header("정체")]
-    [Tooltip("0이 가장 앞. 숫자가 클수록 안쪽")]
+    [Tooltip("표시용 깊이. 갈림길에서는 같은 값을 가진 평면이 여러 개 있을 수 있다. " +
+             "평면을 구분하는 건 이 숫자가 아니라 오브젝트 자신이다")]
     [SerializeField] int depthIndex = 0;
+
+    [Tooltip("이 방에 서 있을 때 뒤에 깔릴 배경. 보통 한 겹 안쪽 방을 넣는다. " +
+             "게이트마다 다른 걸 보여주면 문 앞에서 답을 읽게 되므로 방당 하나만 정한다")]
+    [SerializeField] DepthPlane backdrop;
 
     [Tooltip("이 평면의 지형이 속한 Unity 레이어 이름")]
     [SerializeField] string layerName = "Depth0";
@@ -71,6 +76,9 @@ public class DepthPlane : MonoBehaviour
     SpriteRenderer backgroundSprite;
 
     public int DepthIndex => depthIndex;
+
+    /// <summary>이 방 뒤에 보일 방. 없으면 null.</summary>
+    public DepthPlane Backdrop => backdrop;
 
     /// <summary>이 평면의 월드 Z.</summary>
     public float PlaneZ => transform.position.z;
